@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>US Vehicle Market Concentration (HHI)</title>
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; height: 100vh; }
+    #sidebar {
+      width: 280px; padding: 20px; background: #f8f9fa;
+      border-right: 1px solid #dee2e6; overflow-y: auto; flex-shrink: 0;
+    }
+    #sidebar h2 { font-size: 1.1em; margin-bottom: 16px; color: #333; }
+    .control-group { margin-bottom: 14px; }
+    .control-group label { display: block; font-size: 0.8em; font-weight: 600; color: #555; margin-bottom: 4px; }
+    .control-group select {
+      width: 100%; padding: 6px 8px; border: 1px solid #ced4da;
+      border-radius: 4px; font-size: 0.85em; background: #fff;
+    }
+    #legend { margin-top: 20px; padding-top: 14px; border-top: 1px solid #dee2e6; }
+    #legend h3 { font-size: 0.85em; margin-bottom: 8px; color: #555; }
+    .legend-item { display: flex; align-items: center; font-size: 0.8em; margin-bottom: 4px; color: #555; }
+    .legend-swatch { width: 16px; height: 16px; margin-right: 8px; border-radius: 2px; flex-shrink: 0; }
+    #map { flex: 1; }
+    #status { position: absolute; bottom: 10px; left: 290px; background: rgba(255,255,255,0.9); padding: 4px 10px; border-radius: 4px; font-size: 0.75em; color: #666; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h2>Market Concentration (HHI)</h2>
+    <div class="control-group">
+      <label>Group By</label>
+      <select id="group-var"></select>
+    </div>
+    <div class="control-group">
+      <label>Category</label>
+      <select id="group-level"></select>
+    </div>
+    <div class="control-group">
+      <label>HHI Dimension</label>
+      <select id="hhi-var"></select>
+    </div>
+    <div class="control-group">
+      <label>Year</label>
+      <select id="year"></select>
+    </div>
+    <div id="legend">
+      <h3>Market Concentration</h3>
+      <h3>(HHI Interpretation)</h3>
+      <div class="legend-item"><div class="legend-swatch" style="background:#2166ac"></div> &lt; 0.10: Very Competitive</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#67a9cf"></div> 0.10 &ndash; 0.15: Competitive</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#fddbc7"></div> 0.15 &ndash; 0.25: Moderate</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f46d43"></div> 0.25 &ndash; 0.50: Concentrated</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#a50026"></div> &gt; 0.50: Very Concentrated</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#e0e0e0"></div> No data</div>
+    </div>
+  </div>
+  <div id="map"></div>
+  <div id="status">Loading...</div>
+
+  <script>
+    // --- PMTiles protocol ---
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
+
+    // PMTiles hosted on GitHub Releases (supports HTTP range requests)
+    const PMTILES_URL = "https://github.com/vehicletrends/hhi-map/releases/download/data-v1/hhi_tracts.pmtiles";
+
+    const config = {"groupVars":[{"label":"Powertrain","code":"pt","levels":[{"label":"Gasoline","code":"cv"},{"label":"Flex Fuel (E85)","code":"flex"},{"label":"Hybrid Electric (HEV)","code":"hev"},{"label":"Plug-In Hybrid Electric (PHEV)","code":"phev"},{"label":"Battery Electric (BEV)","code":"bev"},{"label":"Diesel","code":"dsl"},{"label":"Fuel Cell","code":"fcev"}],"excludeHhi":null},{"label":"Vehicle Type","code":"vt","levels":[{"label":"Car","code":"car"},{"label":"CUV","code":"cuv"},{"label":"SUV","code":"suv"},{"label":"Pickup","code":"pup"},{"label":"Minivan","code":"van"}],"excludeHhi":"vt"},{"label":"Price Bin","code":"pb","levels":[{"label":"$0-$10k","code":"p0"},{"label":"$10k-$20k","code":"p10"},{"label":"$20k-$30k","code":"p20"},{"label":"$30k-$40k","code":"p30"},{"label":"$40k-$50k","code":"p40"},{"label":"$50k-$60k","code":"p50"},{"label":"$60k-$70k","code":"p60"},{"label":"$70k+","code":"p70"}],"excludeHhi":"pb"}],"hhiVars":[{"label":"Make","code":"mk"},{"label":"Vehicle Type","code":"vt"},{"label":"Price Bin","code":"pb"}],"years":[2018,2019,2020,2021,2022,2023,2024,2025]};
+    let map = null;
+
+    // --- Build column name from current selections ---
+    function getColumnName() {
+      const gvSel = document.getElementById("group-var");
+      const glSel = document.getElementById("group-level");
+      const hvSel = document.getElementById("hhi-var");
+      const yrSel = document.getElementById("year");
+      if (!gvSel.value || !glSel.value || !hvSel.value || !yrSel.value) return null;
+      return `${gvSel.value}_${glSel.value}_${hvSel.value}_${yrSel.value}`;
+    }
+
+    // --- Update map paint property ---
+    function updateMap() {
+      const col = getColumnName();
+      if (!col || !map || !map.getLayer("hhi-fill")) return;
+
+      map.setPaintProperty("hhi-fill", "fill-color", [
+        "case",
+        ["has", col],
+        [
+          "interpolate", ["linear"], ["get", col],
+          0,    "#2166ac",
+          0.10, "#67a9cf",
+          0.15, "#fddbc7",
+          0.25, "#f46d43",
+          0.50, "#d73027",
+          1.0,  "#a50026"
+        ],
+        "#e0e0e0"
+      ]);
+
+      document.getElementById("status").textContent =
+        `Showing: ${col}`;
+    }
+
+    // --- Populate dropdowns from config ---
+    function populateDropdowns() {
+      const gvSel = document.getElementById("group-var");
+      const yrSel = document.getElementById("year");
+
+      // Group vars
+      config.groupVars.forEach((gv, i) => {
+        const opt = document.createElement("option");
+        opt.value = gv.code;
+        opt.textContent = gv.label;
+        gvSel.appendChild(opt);
+      });
+
+      // Years (select latest by default)
+      config.years.forEach(yr => {
+        const opt = document.createElement("option");
+        opt.value = yr;
+        opt.textContent = yr;
+        yrSel.appendChild(opt);
+      });
+      yrSel.value = config.years[config.years.length - 1];
+
+      // Trigger group-var change to populate levels and HHI vars
+      updateGroupLevel();
+      updateHhiVar();
+    }
+
+    function updateGroupLevel() {
+      const gvSel = document.getElementById("group-var");
+      const glSel = document.getElementById("group-level");
+      const gv = config.groupVars.find(g => g.code === gvSel.value);
+      if (!gv) return;
+
+      glSel.innerHTML = "";
+      gv.levels.forEach(lv => {
+        const opt = document.createElement("option");
+        opt.value = lv.code;
+        opt.textContent = lv.label;
+        glSel.appendChild(opt);
+      });
+    }
+
+    function updateHhiVar() {
+      const gvSel = document.getElementById("group-var");
+      const hvSel = document.getElementById("hhi-var");
+      const gv = config.groupVars.find(g => g.code === gvSel.value);
+      if (!gv) return;
+
+      hvSel.innerHTML = "";
+      config.hhiVars.forEach(hv => {
+        // Skip self-referential dimension
+        if (gv.excludeHhi && hv.code === gv.excludeHhi) return;
+        const opt = document.createElement("option");
+        opt.value = hv.code;
+        opt.textContent = hv.label;
+        hvSel.appendChild(opt);
+      });
+    }
+
+    // --- Event listeners ---
+    document.getElementById("group-var").addEventListener("change", () => {
+      updateGroupLevel();
+      updateHhiVar();
+      updateMap();
+    });
+    document.getElementById("group-level").addEventListener("change", updateMap);
+    document.getElementById("hhi-var").addEventListener("change", updateMap);
+    document.getElementById("year").addEventListener("change", updateMap);
+
+    // --- Initialize ---
+    async function init() {
+      populateDropdowns();
+
+      // Create map
+      map = new maplibregl.Map({
+        container: "map",
+        style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        center: [-98.5, 39.8],
+        zoom: 3.5
+      });
+
+      map.on("load", () => {
+        // Add PMTiles source
+        map.addSource("hhi-tracts", {
+          type: "vector",
+          url: `pmtiles://${PMTILES_URL}`
+        });
+
+        // Add fill layer
+        map.addLayer({
+          id: "hhi-fill",
+          type: "fill",
+          source: "hhi-tracts",
+          "source-layer": "tracts",
+          paint: {
+            "fill-color": "#e0e0e0",
+            "fill-opacity": 0.7
+          }
+        });
+
+        // Add hover tooltip
+        const popup = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false
+        });
+
+        map.on("mousemove", "hhi-fill", (e) => {
+          if (!e.features.length) return;
+          const col = getColumnName();
+          if (!col) return;
+          const val = e.features[0].properties[col];
+          const display = val != null ? val.toFixed(3) : "No data";
+          popup
+            .setLngLat(e.lngLat)
+            .setHTML(`<strong>HHI:</strong> ${display}`)
+            .addTo(map);
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "hhi-fill", () => {
+          popup.remove();
+          map.getCanvas().style.cursor = "";
+        });
+
+        // Apply initial coloring
+        updateMap();
+        document.getElementById("status").textContent = "Ready";
+      });
+
+      map.addControl(new maplibregl.NavigationControl());
+    }
+
+    init();
+  </script>
+</body>
+</html>

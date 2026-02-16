@@ -67,8 +67,8 @@
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    // PMTiles hosted on GitHub Releases (supports HTTP range requests)
-    const PMTILES_URL = "https://github.com/vehicletrends/hhi-map/releases/download/data-v1/hhi_tracts.pmtiles";
+    // PMTiles hosted on Cloudflare R2
+    const PMTILES_URL = "https://pub-17d608be304c4976845ab692fc09de91.r2.dev/hhi_tracts.pmtiles";
 
     const config = {"groupVars":[{"label":"Powertrain","code":"pt","levels":[{"label":"Gasoline","code":"cv"},{"label":"Flex Fuel (E85)","code":"flex"},{"label":"Hybrid Electric (HEV)","code":"hev"},{"label":"Plug-In Hybrid Electric (PHEV)","code":"phev"},{"label":"Battery Electric (BEV)","code":"bev"},{"label":"Diesel","code":"dsl"},{"label":"Fuel Cell","code":"fcev"}],"excludeHhi":null},{"label":"Vehicle Type","code":"vt","levels":[{"label":"Car","code":"car"},{"label":"CUV","code":"cuv"},{"label":"SUV","code":"suv"},{"label":"Pickup","code":"pup"},{"label":"Minivan","code":"van"}],"excludeHhi":"vt"},{"label":"Price Bin","code":"pb","levels":[{"label":"$0-$10k","code":"p0"},{"label":"$10k-$20k","code":"p10"},{"label":"$20k-$30k","code":"p20"},{"label":"$30k-$40k","code":"p30"},{"label":"$40k-$50k","code":"p40"},{"label":"$50k-$60k","code":"p50"},{"label":"$60k-$70k","code":"p60"},{"label":"$70k+","code":"p70"}],"excludeHhi":"pb"}],"hhiVars":[{"label":"Make","code":"mk"},{"label":"Vehicle Type","code":"vt"},{"label":"Price Bin","code":"pb"}],"years":[2018,2019,2020,2021,2022,2023,2024,2025]};
     let map = null;

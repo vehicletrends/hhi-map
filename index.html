@@ -13,7 +13,9 @@
     #sidebar {
       width: 280px; padding: 20px; background: #f8f9fa;
       border-right: 1px solid #dee2e6; overflow-y: auto; flex-shrink: 0;
+      transition: margin-left 0.3s ease, opacity 0.3s ease;
     }
+    #sidebar.collapsed { margin-left: -280px; opacity: 0; pointer-events: none; }
     #sidebar h2 { font-size: 1.1em; margin-bottom: 16px; color: #333; }
     .control-group { margin-bottom: 14px; }
     .control-group label { display: block; font-size: 0.8em; font-weight: 600; color: #555; margin-bottom: 4px; }
@@ -26,18 +28,26 @@
     .legend-item { display: flex; align-items: center; font-size: 0.8em; margin-bottom: 4px; color: #555; }
     .legend-swatch { width: 16px; height: 16px; margin-right: 8px; border-radius: 2px; flex-shrink: 0; }
     #map { flex: 1; }
-    #status { position: absolute; bottom: 10px; left: 290px; background: rgba(255,255,255,0.9); padding: 4px 10px; border-radius: 4px; font-size: 0.75em; color: #666; pointer-events: none; }
+    #toggle-btn {
+      position: absolute; top: 10px; left: 290px; z-index: 10;
+      background: #fff; border: 1px solid #ccc; border-radius: 4px;
+      padding: 6px 10px; font-size: 0.8em; cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15); transition: left 0.3s ease;
+    }
+    #toggle-btn.shifted { left: 10px; }
+    #status { position: absolute; bottom: 10px; left: 290px; background: rgba(255,255,255,0.9); padding: 4px 10px; border-radius: 4px; font-size: 0.75em; color: #666; pointer-events: none; transition: left 0.3s ease; }
+    #status.shifted { left: 10px; }
   </style>
 </head>
 <body>
   <div id="sidebar">
     <h2>Market Concentration (HHI)</h2>
     <div class="control-group">
-      <label>Group By</label>
+      <label>Group</label>
       <select id="group-var"></select>
     </div>
     <div class="control-group">
-      <label>Category</label>
+      <label>Level</label>
       <select id="group-level"></select>
     </div>
     <div class="control-group">
@@ -59,6 +69,7 @@
       <div class="legend-item"><div class="legend-swatch" style="background:#e0e0e0"></div> No data</div>
     </div>
   </div>
+  <button id="toggle-btn" title="Toggle sidebar">&#9776; Hide controls</button>
   <div id="map"></div>
   <div id="status">Loading...</div>
 
@@ -175,6 +186,19 @@
     document.getElementById("group-level").addEventListener("change", updateMap);
     document.getElementById("hhi-var").addEventListener("change", updateMap);
     document.getElementById("year").addEventListener("change", updateMap);
+
+    // --- Sidebar toggle ---
+    document.getElementById("toggle-btn").addEventListener("click", () => {
+      const sidebar = document.getElementById("sidebar");
+      const btn = document.getElementById("toggle-btn");
+      const status = document.getElementById("status");
+      const collapsed = sidebar.classList.toggle("collapsed");
+      btn.classList.toggle("shifted");
+      status.classList.toggle("shifted");
+      btn.innerHTML = collapsed ? "&#9776; Show controls" : "&#9776; Hide controls";
+      // Let transition finish, then resize map
+      setTimeout(() => { if (map) map.resize(); }, 320);
+    });
 
     // --- Initialize ---
     async function init() {

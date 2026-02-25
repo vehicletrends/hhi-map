@@ -20,9 +20,9 @@ dir.create("data", showWarnings = FALSE)
 # =========================================================================
 
 urls <- c(
-  "https://github.com/vehicletrends/vehicletrends/releases/download/data-v1/hhi_pt_60.parquet",
-  "https://github.com/vehicletrends/vehicletrends/releases/download/data-v1/hhi_vt_60.parquet",
-  "https://github.com/vehicletrends/vehicletrends/releases/download/data-v1/hhi_pb_60.parquet"
+  "https://github.com/vehicletrends/vehicletrends/releases/download/data-v2/hhi_pt_60.parquet",
+  "https://github.com/vehicletrends/vehicletrends/releases/download/data-v2/hhi_vt_60.parquet",
+  "https://github.com/vehicletrends/vehicletrends/releases/download/data-v2/hhi_pb_60.parquet"
 )
 
 for (url in urls) {
@@ -99,60 +99,60 @@ gv_codes <- c(
 # Keys = actual values in parquet, values = short codes for PMTiles columns
 gl_codes <- list(
   powertrain = c(
-    "cv"    = "cv",
-    "flex"  = "flex",
-    "hev"   = "hev",
-    "phev"  = "phev",
-    "bev"   = "bev",
+    "cv" = "cv",
+    "flex" = "flex",
+    "hev" = "hev",
+    "phev" = "phev",
+    "bev" = "bev",
     "diesel" = "dsl",
-    "fcev"  = "fcev"
+    "fcev" = "fcev"
   ),
   vehicle_type = c(
-    "car"     = "car",
-    "cuv"     = "cuv",
-    "suv"     = "suv",
-    "pickup"  = "pup",
+    "car" = "car",
+    "cuv" = "cuv",
+    "suv" = "suv",
+    "pickup" = "pup",
     "minivan" = "van"
   ),
   price_bin = c(
-    "$0-$10k"   = "p0",
+    "$0-$10k" = "p0",
     "$10k-$20k" = "p10",
     "$20k-$30k" = "p20",
     "$30k-$40k" = "p30",
     "$40k-$50k" = "p40",
     "$50k-$60k" = "p50",
     "$60k-$70k" = "p60",
-    "$70k+"     = "p70"
+    "$70k+" = "p70"
   )
 )
 
 # Display labels for the HTML UI (parquet value -> nice label)
 gl_labels <- list(
   powertrain = c(
-    "cv"     = "Gasoline",
-    "flex"   = "Flex Fuel (E85)",
-    "hev"    = "Hybrid Electric (HEV)",
-    "phev"   = "Plug-In Hybrid Electric (PHEV)",
-    "bev"    = "Battery Electric (BEV)",
+    "cv" = "Gasoline",
+    "flex" = "Flex Fuel (E85)",
+    "hev" = "Hybrid Electric (HEV)",
+    "phev" = "Plug-In Hybrid Electric (PHEV)",
+    "bev" = "Battery Electric (BEV)",
     "diesel" = "Diesel",
-    "fcev"   = "Fuel Cell"
+    "fcev" = "Fuel Cell"
   ),
   vehicle_type = c(
-    "car"     = "Car",
-    "cuv"     = "CUV",
-    "suv"     = "SUV",
-    "pickup"  = "Pickup",
+    "car" = "Car",
+    "cuv" = "CUV",
+    "suv" = "SUV",
+    "pickup" = "Pickup",
     "minivan" = "Minivan"
   ),
   price_bin = c(
-    "$0-$10k"   = "$0-$10k",
+    "$0-$10k" = "$0-$10k",
     "$10k-$20k" = "$10k-$20k",
     "$20k-$30k" = "$20k-$30k",
     "$30k-$40k" = "$30k-$40k",
     "$40k-$50k" = "$40k-$50k",
     "$50k-$60k" = "$50k-$60k",
     "$60k-$70k" = "$60k-$70k",
-    "$70k+"     = "$70k+"
+    "$70k+" = "$70k+"
   )
 )
 
@@ -194,7 +194,7 @@ pivot_wide <- function(data, gv) {
       col_name = paste(gv_code, gl_code, hv_code, listing_year, sep = "_")
     ) |>
     select(GEOID, col_name, hhi_val) |>
-    pivot_wider(names_from = col_name, values_from = hhi_val)
+    pivot_wider(names_from = col_name, values_from = hhi_val, values_fn = mean)
 }
 
 message("Pivoting parquet data to wide format...")
@@ -255,7 +255,7 @@ all_years <- sort(unique(read_parquet(parquet_files[1])$listing_year))
 
 config <- list(
   groupVars = lapply(names(gv_codes), function(gv) {
-    codes  <- gl_codes[[gv]]
+    codes <- gl_codes[[gv]]
     labels <- gl_labels[[gv]]
     list(
       label = switch(

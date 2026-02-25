@@ -23,6 +23,9 @@
       width: 100%; padding: 6px 8px; border: 1px solid #ced4da;
       border-radius: 4px; font-size: 0.85em; background: #fff;
     }
+    .year-slider-row { display: flex; align-items: center; gap: 8px; }
+    #year { flex: 1; cursor: pointer; }
+    #year-display { font-size: 0.85em; font-weight: 600; color: #333; white-space: nowrap; }
     #legend { margin-top: 20px; padding-top: 14px; border-top: 1px solid #dee2e6; }
     #legend h3 { font-size: 0.85em; margin-bottom: 8px; color: #555; }
     .legend-item { display: flex; align-items: center; font-size: 0.8em; margin-bottom: 4px; color: #555; }
@@ -56,7 +59,10 @@
     </div>
     <div class="control-group">
       <label>Year</label>
-      <select id="year"></select>
+      <div class="year-slider-row">
+        <input type="range" id="year" />
+        <span id="year-display"></span>
+      </div>
     </div>
     <div id="legend">
       <h3>Market Concentration</h3>
@@ -131,14 +137,12 @@
         gvSel.appendChild(opt);
       });
 
-      // Years (select latest by default)
-      config.years.forEach(yr => {
-        const opt = document.createElement("option");
-        opt.value = yr;
-        opt.textContent = yr;
-        yrSel.appendChild(opt);
-      });
+      // Years slider
+      yrSel.min = config.years[0];
+      yrSel.max = config.years[config.years.length - 1];
+      yrSel.step = 1;
       yrSel.value = config.years[config.years.length - 1];
+      document.getElementById("year-display").textContent = yrSel.value;
 
       // Trigger group-var change to populate levels and HHI vars
       updateGroupLevel();
@@ -185,7 +189,10 @@
     });
     document.getElementById("group-level").addEventListener("change", updateMap);
     document.getElementById("hhi-var").addEventListener("change", updateMap);
-    document.getElementById("year").addEventListener("change", updateMap);
+    document.getElementById("year").addEventListener("input", () => {
+      document.getElementById("year-display").textContent = document.getElementById("year").value;
+      updateMap();
+    });
 
     // --- Sidebar toggle ---
     document.getElementById("toggle-btn").addEventListener("click", () => {
